@@ -1,0 +1,99 @@
+# Secrets / keys — never commit
+*.env
+api_keys.env
+pipeline/code/config.js
+.env
+
+# Large files and archives
+*.tar.gz
+*.tar
+*.zip
+*.gz
+
+# Data / model artifacts
+*.csv
+*.tsv
+*.parquet
+*.safetensors
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+
+# JSON (often huge in this repo; keep portable code-only commits)
+*.json
+*.jsonl
+*.ndjson
+*.geojson
+
+# Datasets (too large)
+datasets/
+archive/
+nutrition5k_dataset/
+
+# Paper outputs (don't commit generated figures/docs)
+paper/figures/
+paper/doc/
+paper/scripts/
+
+# Pipeline outputs (track code + paper benchmark CSVs only)
+pipeline/*
+!pipeline/code/
+!pipeline/outputs/
+pipeline/outputs/*
+!pipeline/outputs/benchmark_results/
+pipeline/outputs/benchmark_results/*
+!pipeline/outputs/benchmark_results/*_full3229.csv
+!pipeline/outputs/benchmark_results/sample_full_valid_dish_ids.txt
+!pipeline/outputs/benchmark_results/prompt_ablation_full3229/
+pipeline/outputs/benchmark_results/prompt_ablation_full3229/*
+!pipeline/outputs/benchmark_results/prompt_ablation_full3229/*_full3229.csv
+
+# Never commit python bytecode/cache anywhere
+**/__pycache__/
+*.pyc
+
+# Minigame images (downloaded separately)
+minigame/images/
+minigame/foodseg103_images/
+
+# Minigame local state (annotations + equivalences produced while playing)
+minigame/data/
+minigame/exports/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp

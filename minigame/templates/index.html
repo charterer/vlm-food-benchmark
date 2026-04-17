@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Annotation Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Stats Bar -->
+        <header class="stats-bar">
+            <div class="stat-item dataset-selector">
+                <span class="stat-label">Select Dataset</span>
+                <select id="dataset-select" class="dataset-dropdown">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Image</span>
+                <span class="stat-value" id="current-image">--</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">This Image</span>
+                <div class="jaccard-compare">
+                    <span class="jaccard original" id="image-original-jaccard">--</span>
+                    <span class="arrow">→</span>
+                    <span class="jaccard updated" id="image-updated-jaccard">--</span>
+                </div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Dataset Mean</span>
+                <div class="jaccard-compare">
+                    <span class="jaccard original" id="dataset-original-jaccard">--</span>
+                    <span class="arrow">→</span>
+                    <span class="jaccard updated" id="dataset-updated-jaccard">--</span>
+                </div>
+            </div>
+            <div class="stat-item progress-item">
+                <span class="stat-label">Progress</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                    <span class="progress-text" id="progress-text">0/0</span>
+                </div>
+                <span class="validated-text" id="validated-text">Validated: 0</span>
+            </div>
+            <div class="stat-item set-toggle-item" id="set-toggle-item" style="display: none;">
+                <span class="stat-label">Image Set</span>
+                <div class="set-toggle">
+                    <button class="set-btn active" id="btn-main-set" title="Main set">
+                        Main <span class="set-count" id="main-set-count">0</span>
+                    </button>
+                    <button class="set-btn" id="btn-challenge-set" title="Images with unsure (?) items">
+                        Challenge <span class="set-count" id="challenge-set-count">0</span>
+                    </button>
+                </div>
+            </div>
+            <div class="stat-item player-indicator" id="player-indicator">
+                <span class="stat-label">Annotator</span>
+                <button class="player-name-btn" id="player-name-btn" title="Click to change player">
+                    <span id="current-player-name">--</span>
+                    <span class="change-icon">✎</span>
+                </button>
+            </div>
+            <div class="stat-item">
+                <button class="btn btn-dashboard" id="btn-dashboard" title="View dashboard & statistics">
+                    <span class="btn-icon">📊</span>
+                    <span>Dashboard</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Image Panel -->
+            <section class="image-panel">
+                <div class="image-actions">
+                    <button class="btn btn-reset" id="btn-reset" title="Reset changes">
+                        <span class="btn-icon">↺</span>
+                        <span>Reset</span>
+                    </button>
+                    <button class="btn btn-skip" id="btn-skip">
+                        <span class="btn-icon">⏭️</span>
+                        <span>Skip</span>
+                    </button>
+                    <button class="btn btn-submit" id="btn-submit" disabled>
+                        <span class="btn-icon">✅</span>
+                        <span>Submit & Next</span>
+                    </button>
+                </div>
+                <div class="submit-hint" id="submit-hint">
+                    Resolve all yellow cards (reject ✕ or drag to link) to submit
+                </div>
+                <div class="image-container" id="image-container">
+                    <img id="food-image" src="" alt="Food dish">
+                    <div class="magnifier-lens" id="magnifier-lens"></div>
+                    <div class="image-overlay" id="loading-overlay">
+                        <div class="spinner"></div>
+                        <span>Loading...</span>
+                    </div>
+                    <div class="zoom-hint" id="zoom-hint">🔍 Hover to magnify</div>
+                </div>
+                <div class="ai-description" id="ai-description-section">
+                    <span class="description-label">AI Description:</span>
+                    <p id="ai-description-text">Loading...</p>
+                </div>
+            </section>
+
+            <!-- Annotation Columns -->
+            <section class="annotation-panel" id="annotation-panel">
+                <!-- SVG layer for connection lines -->
+                <svg class="connection-lines" id="connection-lines"></svg>
+                
+                <!-- Column A (GT in normal mode, randomized in blind mode) -->
+                <div class="column column-a" id="column-a">
+                    <div class="column-header">
+                        <h2 id="col-a-title">Ground Truth</h2>
+                        <span class="column-badge gt-badge" id="col-a-badge">Original Labels</span>
+                    </div>
+                    <div class="cards-container" id="col-a-cards"></div>
+                    <!-- Add ingredient only shows in normal mode for GT column -->
+                    <div class="add-ingredient" id="add-ingredient-section">
+                        <input type="text" id="new-ingredient-input" placeholder="Add missing ingredient...">
+                        <button class="btn btn-add" id="btn-add-ingredient">
+                            <span>+</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Column B (AI in normal mode, randomized in blind mode) -->
+                <div class="column column-b" id="column-b">
+                    <div class="column-header">
+                        <h2 id="col-b-title">AI Predictions</h2>
+                        <span class="column-badge ai-badge" id="col-b-badge">Gemini 2.0 Flash</span>
+                    </div>
+                    <div class="cards-container" id="col-b-cards"></div>
+                </div>
+                
+                <!-- New Ingredients Section (only in blind mode, spans both columns) -->
+                <section class="new-ingredients-section" id="new-ingredients-section" style="display: none;">
+                    <div class="new-ingredients-header">
+                        <h3>New Ingredients</h3>
+                        <span class="new-ingredients-hint">Add ingredients you see that aren't in either list above</span>
+                    </div>
+                    <div class="new-ingredients-input">
+                        <input type="text" id="blind-new-ingredient-input" placeholder="Add missing ingredient...">
+                        <button class="btn btn-add" id="btn-blind-add-ingredient">
+                            <span>+</span>
+                        </button>
+                    </div>
+                    <div class="new-ingredients-list" id="new-ingredients-list"></div>
+                </section>
+            </section>
+
+            <!-- Single-Blind Mode: Phase 1 (Merged List) -->
+            <section class="annotation-panel single-blind-panel" id="single-blind-phase1" style="display: none;">
+                <div class="phase-indicator">
+                    <span class="phase-badge active">Phase 1</span>
+                    <span class="phase-desc">Review all ingredients below. Check ✓ if present in the image, ✕ if not.</span>
+                    <span class="phase-badge inactive">Phase 2</span>
+                </div>
+                
+                <div class="merged-column">
+                    <div class="column-header">
+                        <h2>All Ingredients</h2>
+                        <span class="column-badge merged-badge">Combined List</span>
+                    </div>
+                    <div class="cards-container" id="merged-cards"></div>
+                    
+                    <div class="add-ingredient">
+                        <input type="text" id="single-blind-new-input" placeholder="Add missing ingredient...">
+                        <button class="btn btn-add" id="btn-single-blind-add">
+                            <span>+</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Global Phase 2: Equivalency Review (shown after ALL images done) -->
+            <section class="global-phase2-panel" id="global-phase2" style="display: none;">
+                <div class="phase2-header">
+                    <div class="phase2-title-row">
+                        <span class="phase-badge active">Phase 2</span>
+                        <h2>Equivalency Review</h2>
+                    </div>
+                    <p class="phase2-subtitle">
+                        These ingredient pairs appeared on the same images but weren't automatically matched.
+                        Mark pairs that refer to the <strong>same ingredient</strong>.
+                    </p>
+                    <div class="phase2-stats">
+                        <span id="phase2-progress-text">0 / 0 reviewed</span>
+                        <div class="progress-bar phase2-progress-bar">
+                            <div class="progress-fill" id="phase2-progress-fill"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="phase2-candidates-list" id="phase2-candidates-list">
+                    <!-- Candidate pair cards rendered by JS -->
+                </div>
+                <div class="phase2-actions">
+                    <button class="btn btn-submit" id="btn-phase2-finish" disabled>
+                        <span class="btn-icon">✅</span>
+                        <span>Save Equivalencies & Finish</span>
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Dashboard Panel -->
+        <section class="dashboard-panel" id="dashboard-panel" style="display: none;">
+            <div class="dashboard-header">
+                <button class="btn btn-back" id="btn-dashboard-back">
+                    <span class="btn-icon">←</span>
+                    <span>Back to Game</span>
+                </button>
+                <h2>Dashboard</h2>
+                <div class="dashboard-filters">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="exclude-perfect-toggle" checked>
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Exclude auto-perfect images</span>
+                    </label>
+                    <label class="annotator-filter">
+                        <span class="filter-label">Annotator:</span>
+                        <select id="annotator-filter-select">
+                            <option value="">All</option>
+                        </select>
+                    </label>
+                </div>
+                <button class="btn btn-export" id="btn-export" title="Download annotations Excel">
+                    <span class="btn-icon">📥</span>
+                    <span>Export Excel</span>
+                </button>
+            </div>
+            
+            <div class="dashboard-content">
+                <!-- Summary Stats Cards -->
+                <div class="dashboard-stats-row">
+                    <div class="dashboard-card">
+                        <div class="card-icon">📷</div>
+                        <div class="card-content">
+                            <span class="card-value" id="dash-completed-count">--</span>
+                            <span class="card-label">Completed Photos</span>
+                            <span class="card-sublabel" id="dash-completed-detail">Manual: -- | Auto-Perfect: --</span>
+                        </div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-icon">🎯</div>
+                        <div class="card-content">
+                            <span class="card-value" id="dash-progress-pct">--%</span>
+                            <span class="card-label">Dataset Progress</span>
+                            <span class="card-sublabel" id="dash-progress-detail">-- / -- images</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Precision Metrics -->
+                <div class="dashboard-section">
+                    <h3>Precision Metrics</h3>
+                    <p class="section-desc">How accurate are the original labels vs AI predictions, as judged by the validator?</p>
+                    
+                    <div class="precision-grid">
+                        <!-- N5K GT Precision -->
+                        <div class="precision-card gt-precision">
+                            <h4>N5K Ground Truth</h4>
+                            <div class="precision-metrics">
+                                <div class="precision-row">
+                                    <span class="precision-label">Strict Precision</span>
+                                    <span class="precision-formula">(✓ / total)</span>
+                                    <span class="precision-value" id="dash-gt-precision-strict">--%</span>
+                                </div>
+                                <div class="precision-row with-uncertain">
+                                    <span class="precision-label">With Uncertain</span>
+                                    <span class="precision-formula">((✓ + ?) / total)</span>
+                                    <span class="precision-value" id="dash-gt-precision-uncertain">--%</span>
+                                </div>
+                            </div>
+                            <div class="precision-breakdown">
+                                <span class="breakdown-item approved">✓ <span id="dash-gt-approved">--</span></span>
+                                <span class="breakdown-item rejected">✕ <span id="dash-gt-rejected">--</span></span>
+                                <span class="breakdown-item unsure">? <span id="dash-gt-unsure">--</span></span>
+                            </div>
+                        </div>
+                        
+                        <!-- AI Precision -->
+                        <div class="precision-card ai-precision">
+                            <h4>AI (Gemini 2.0 Flash)</h4>
+                            <div class="precision-metrics">
+                                <div class="precision-row">
+                                    <span class="precision-label">Strict Precision</span>
+                                    <span class="precision-formula">(✓ / total)</span>
+                                    <span class="precision-value" id="dash-ai-precision-strict">--%</span>
+                                </div>
+                                <div class="precision-row with-uncertain">
+                                    <span class="precision-label">With Uncertain</span>
+                                    <span class="precision-formula">((✓ + ?) / total)</span>
+                                    <span class="precision-value" id="dash-ai-precision-uncertain">--%</span>
+                                </div>
+                            </div>
+                            <div class="precision-breakdown">
+                                <span class="breakdown-item approved">✓ <span id="dash-ai-approved">--</span></span>
+                                <span class="breakdown-item rejected">✕ <span id="dash-ai-rejected">--</span></span>
+                                <span class="breakdown-item unsure">? <span id="dash-ai-unsure">--</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Charts Section -->
+                <div class="dashboard-section">
+                    <h3>Visualizations</h3>
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <h4>Precision Comparison</h4>
+                            <canvas id="precision-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h4>Ingredient Breakdown</h4>
+                            <canvas id="breakdown-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-footer">
+                    <p class="data-note">📅 Data from annotations made on or after <span id="dash-cutoff-date">2026-02-06</span></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Done Overlay -->
+        <div class="done-overlay" id="done-overlay">
+            <div class="done-content">
+                <span class="done-icon">🎉</span>
+                <h2 id="done-title">All Done!</h2>
+                <p id="done-message">You've annotated all available images in this dataset.</p>
+                <p class="done-stats">
+                    Final Dataset Jaccard: <span id="final-jaccard">--</span>
+                </p>
+                <div class="done-actions">
+                    <button class="btn btn-primary" id="btn-proceed-phase2" style="display: none;">
+                        Proceed to Equivalency Review →
+                    </button>
+                    <button class="btn btn-primary" id="btn-done-reload" onclick="location.reload()">Check for New Images</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dragging line SVG -->
+        <svg class="drag-line-svg" id="drag-line-svg">
+            <line id="drag-line" x1="0" y1="0" x2="0" y2="0" />
+        </svg>
+
+        <!-- Player Selection Modal -->
+        <div class="player-modal" id="player-modal">
+            <div class="player-modal-content">
+                <h2>Who's annotating?</h2>
+                <p>Select your name or enter a new one</p>
+                <div class="player-buttons" id="player-buttons">
+                    <!-- Dynamically populated -->
+                </div>
+                <div class="player-custom">
+                    <input type="text" id="custom-player-input" placeholder="Or enter your name...">
+                    <button class="btn btn-add" id="btn-custom-player">→</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
